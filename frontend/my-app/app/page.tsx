@@ -19,7 +19,7 @@ export default function HomePage() {
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 to-warm/20 blur-2xl" />
               <div className="relative rounded-full overflow-hidden border-4 border-primary/20 shadow-2xl">
                 <Image
-                  src="/hands-holding-heart-charity-giving-warm-colors.jpg"
+                  src="/hands-holding-heart-charity-giving-warm-colors.png"
                   alt="نیک‌یار - اهدای کالا"
                   width={256}
                   height={256}

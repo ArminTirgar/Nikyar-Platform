@@ -1,14 +1,15 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Vazirmatn } from "next/font/google"
+import localFont from "next/font/local"
 import { Analytics } from "@vercel/analytics/next"
 import { UserProvider } from "@/contexts/user-context"
 import "./globals.css"
 
-const vazirmatn = Vazirmatn({
-  subsets: ["arabic"],
-  display: "swap",
+const vazirmatn = localFont({
+  src: "../public/fonts/Vazirmatn-Regular.woff2",
+  variable: "--font-vazirmatn",
 })
+
 
 export const metadata: Metadata = {
   title: "پلتفرم نیک‌یار - اهدای مستقیم کالا به نیازمندان",
@@ -39,11 +40,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="fa" dir="rtl">
-      <body className={`${vazirmatn.className} font-sans antialiased`}>
-        <UserProvider>{children}</UserProvider>
-        <Analytics />
-      </body>
-    </html>
+    <html lang="fa" dir="rtl" suppressHydrationWarning>
+  <body className={`${vazirmatn.className} font-sans antialiased`}>
+    <UserProvider>{children}</UserProvider>
+    <Analytics />
+  </body>
+</html>
+
   )
 }

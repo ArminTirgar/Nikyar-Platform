@@ -1,11 +1,14 @@
 "use client"
 
+import React from "react"
+
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Package, Search, MapPin, Clock, ChevronLeft, Filter, Grid3X3, List, Loader2 } from "lucide-react"
+import { Package, Search, MapPin, Clock, ChevronLeft, Filter, Grid3X3, List, Loader2, X, Shirt, Sofa, Smartphone, BookOpen, Baby, Utensils, Bike, MoreHorizontal } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import useSWR from "swr"
@@ -21,11 +24,37 @@ interface Ad {
   status: "available" | "reserved" | "donated"
 }
 
+const categoryNames: Record<string, string> = {
+  clothing: "پوشاک",
+  furniture: "لوازم منزل",
+  electronics: "لوازم الکترونیکی",
+  books: "کتاب و لوازم‌التحریر",
+  kids: "لوازم کودک",
+  kitchen: "لوازم آشپزخانه",
+  sports: "ورزشی",
+  other: "سایر",
+}
+
+const categoryIcons: Record<string, React.ReactNode> = {
+  clothing: <Shirt className="h-4 w-4" />,
+  furniture: <Sofa className="h-4 w-4" />,
+  electronics: <Smartphone className="h-4 w-4" />,
+  books: <BookOpen className="h-4 w-4" />,
+  kids: <Baby className="h-4 w-4" />,
+  kitchen: <Utensils className="h-4 w-4" />,
+  sports: <Bike className="h-4 w-4" />,
+  other: <MoreHorizontal className="h-4 w-4" />,
+}
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export function AdsContent() {
+  const searchParams = useSearchParams()
+  const categoryParam = searchParams.get("category")
+  
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryParam)
 
   const {
     data: ads,
@@ -37,11 +66,13 @@ export function AdsContent() {
   })
 
   const filteredAds =
-    ads?.filter(
-      (ad) =>
+    ads?.filter((ad) => {
+      const matchesSearch =
         ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ad.description.toLowerCase().includes(searchQuery.toLowerCase()),
-    ) || []
+        ad.description.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesCategory = !selectedCategory || ad.category === selectedCategory
+      return matchesSearch && matchesCategory
+    }) || []
 
   const getStatusBadge = (status: Ad["status"]) => {
     switch (status) {
@@ -66,15 +97,27 @@ export function AdsContent() {
                   خانه
                 </Link>
                 <ChevronLeft className="h-4 w-4" />
-                <span>آگهی‌ها</span>
+                <Link href="/ads" className="hover:text-primary transition-colors">
+                  آگهی‌ها
+                </Link>
+                {selectedCategory && (
+                  <>
+                    <ChevronLeft className="h-4 w-4" />
+                    <span>{categoryNames[selectedCategory]}</span>
+                  </>
+                )}
               </div>
               <h1 className="text-3xl md:text-4xl font-bold flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Package className="h-6 w-6" />
+                  {selectedCategory ? categoryIcons[selectedCategory] : <Package className="h-6 w-6" />}
                 </div>
-                همه آگهی‌ها
+                {selectedCategory ? categoryNames[selectedCategory] : "همه آگهی‌ها"}
               </h1>
-              <p className="text-muted-foreground mt-2">کالاهایی که برای اهدا ثبت شده‌اند</p>
+              <p className="text-muted-foreground mt-2">
+                {selectedCategory 
+                  ? `آگهی‌های دسته‌بندی ${categoryNames[selectedCategory]}`
+                  : "کالاهایی که برای اهدا ثبت شده‌اند"}
+              </p>
             </div>
 
             <Button asChild className="w-fit">
@@ -101,7 +144,18 @@ export function AdsContent() {
                 className="pr-10 h-11"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              {selectedCategory && (
+                <Badge 
+                  variant="secondary" 
+                  className="h-11 px-4 flex items-center gap-2 text-sm cursor-pointer hover:bg-destructive/10"
+                  onClick={() => setSelectedCategory(null)}
+                >
+                  {categoryIcons[selectedCategory]}
+                  {categoryNames[selectedCategory]}
+                  <X className="h-4 w-4" />
+                </Badge>
+              )}
               <Button variant="outline" size="icon" className="h-11 w-11 bg-transparent">
                 <Filter className="h-4 w-4" />
               </Button>
