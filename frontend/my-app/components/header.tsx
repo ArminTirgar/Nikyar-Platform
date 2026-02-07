@@ -47,13 +47,13 @@ export function Header() {
             دسته‌بندی
           </Link>
           <Link
-            href="#how-it-works"
+            href="/how-it-works"
             className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors"
           >
             نحوه کار
           </Link>
           <Link
-            href="#about"
+            href="/about"
             className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors"
           >
             درباره ما
@@ -130,11 +130,18 @@ export function Header() {
             دسته‌بندی
           </Link>
           <Link
-            href="#how-it-works"
+            href="/how-it-works"
             className="block px-4 py-2.5 text-sm font-medium rounded-lg hover:bg-muted transition-colors"
             onClick={() => setMobileMenuOpen(false)}
           >
             نحوه کار
+          </Link>
+          <Link
+            href="/about"
+            className="block px-4 py-2.5 text-sm font-medium rounded-lg hover:bg-muted transition-colors"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            درباره ما
           </Link>
           {!user && (
             <Link
