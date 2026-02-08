@@ -49,48 +49,59 @@ export default function RegisterPage() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setError("")
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("رمز عبور و تکرار آن مطابقت ندارند")
-      return
-    }
-
-    if (!acceptTerms) {
-      setError("لطفاً قوانین و مقررات را بپذیرید")
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
-      const response = await fetch("http://localhost:3001/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          FirstName: formData.firstName,
-          LastName: formData.lastName,
-          email: formData.email,
-          password: formData.password,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || "خطا در ثبت‌نام")
-      }
-
-      const userData = await response.json()
-      login(userData)
-      router.push("/")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "خطا در ثبت‌نام")
-    } finally {
-      setIsLoading(false)
-    }
+  if (formData.password !== formData.confirmPassword) {
+    setError("رمز عبور و تکرار آن مطابقت ندارند")
+    return
   }
+  if (!acceptTerms) {
+    setError("لطفاً قوانین و مقررات را بپذیرید")
+    return
+  }
+
+  setIsLoading(true)
+
+  try {
+    const res = await fetch("http://localhost:3001/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: formData.firstName,   // پیشنهاد: camelCase
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+      }),
+    })
+
+    const contentType = res.headers.get("content-type") || ""
+    const text = await res.text()
+
+    // اگر JSON نبود (HTML بود) همینجا خطای معنی‌دار بده
+    if (!contentType.includes("application/json")) {
+      throw new Error(
+        `سرور پاسخ JSON نداد (status ${res.status}). احتمالاً URL اشتباه یا خطای سرور.\n` +
+        text.slice(0, 120)
+      )
+    }
+
+    const data = text ? JSON.parse(text) : null
+
+    if (!res.ok) {
+      throw new Error(data?.message || "خطا در ثبت‌نام")
+    }
+
+    login(data)
+    router.push("/")
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "خطا در ثبت‌نام")
+  } finally {
+    setIsLoading(false)
+  }
+}
+
 
   const strength = passwordStrength()
 

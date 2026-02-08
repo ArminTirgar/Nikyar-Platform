@@ -5,6 +5,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Search,
   ChevronLeft,
@@ -18,8 +20,25 @@ import {
   MoreHorizontal,
   Package,
   ArrowLeft,
+  MapPin,
+  Clock,
 } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
+import useSWR from "swr"
+
+interface Ad {
+  id: number
+  title: string
+  description?: string
+  category: string
+  province: string
+  city: string
+  image_url?: string | null
+  created_at: string
+  item_condition: string
+  status?: "available" | "reserved" | "donated"
+}
 
 interface Category {
   id: string
@@ -27,6 +46,31 @@ interface Category {
   icon: React.ReactNode
   count: number
   color: string
+}
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
+const API_BASE = "http://localhost:3001"
+
+const normalizeImageUrl = (url?: string | null) => {
+  if (!url) return "/placeholder.svg"
+  if (url.startsWith("http://") || url.startsWith("https://")) return url
+  if (url.startsWith("/")) return `${API_BASE}${url}`
+  return `${API_BASE}/${url}`
+}
+
+// تبدیل تاریخ به فرمت شمسی
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffTime = Math.abs(now.getTime() - date.getTime())
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) return "امروز"
+  if (diffDays === 1) return "دیروز"
+  if (diffDays < 7) return `${diffDays} روز پیش`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} هفته پیش`
+  return `${Math.floor(diffDays / 30)} ماه پیش`
 }
 
 const categories: Category[] = [
@@ -72,7 +116,13 @@ const categories: Category[] = [
     count: 21,
     color: "bg-orange-500/10 text-orange-600",
   },
-  { id: "sports", name: "ورزشی", icon: <Bike className="h-8 w-8" />, count: 15, color: "bg-teal-500/10 text-teal-600" },
+  { 
+    id: "sports", 
+    name: "ورزشی", 
+    icon: <Bike className="h-8 w-8" />, 
+    count: 15, 
+    color: "bg-teal-500/10 text-teal-600" 
+  },
   {
     id: "other",
     name: "سایر",
@@ -82,9 +132,39 @@ const categories: Category[] = [
   },
 ]
 
+const categoryNames: Record<string, string> = {
+  clothing: "پوشاک",
+  furniture: "لوازم منزل",
+  electronics: "لوازم الکترونیکی",
+  books: "کتاب و لوازم‌التحریر",
+  kids: "لوازم کودک",
+  kitchen: "لوازم آشپزخانه",
+  sports: "ورزشی",
+  other: "سایر",
+}
+
 export function SearchContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+
+  const {
+    data: ads,
+    isLoading: adsLoading,
+  } = useSWR<Ad[]>("http://localhost:3001/api/ads", fetcher, {
+    revalidateOnFocus: false,
+    fallbackData: [],
+  })
+
+  console.log("📦 Ads data:", ads) // برای debug
+
+  // Group ads by category and get the latest one per category
+  const latestByCategory = categories.reduce<Record<string, Ad>>((acc, cat) => {
+    const categoryAds = (ads || []).filter((ad) => ad.category === cat.id)
+    if (categoryAds.length > 0) {
+      acc[cat.id] = categoryAds[0]
+    }
+    return acc
+  }, {})
 
   const filteredCategories = categories.filter((cat) => cat.name.includes(searchQuery))
 
@@ -209,26 +289,105 @@ export function SearchContent() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {categories.slice(0, 4).map((category) => (
-            <Card key={category.id} className="group hover:shadow-md transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${category.color}`}>
-                    {category.icon}
+        {adsLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Skeleton className="w-10 h-10 rounded-lg" />
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-20 mb-1" />
+                      <Skeleton className="h-3 w-12" />
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-medium">{category.name}</h4>
-                    <p className="text-xs text-muted-foreground">{category.count} آگهی</p>
-                  </div>
+                  <Skeleton className="h-32 w-full rounded-lg" />
+                  <Skeleton className="h-4 w-3/4 mt-3" />
+                  <Skeleton className="h-3 w-1/2 mt-2" />
                 </div>
-                <div className="h-24 rounded-lg bg-muted flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground">آخرین آگهی</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        ) : Object.keys(latestByCategory).length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="p-8 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mx-auto mb-4">
+                <Package className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">هنوز آگهی‌ای ثبت نشده</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                اولین نفری باشید که آگهی ثبت می‌کند
+              </p>
+              <Button asChild>
+                <Link href="/ads/new">ثبت آگهی</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {categories.map((category) => {
+              const ad = latestByCategory[category.id]
+              if (!ad) return null
+
+              const imageUrl = normalizeImageUrl(ad.image_url)
+              const location = `${ad.city}، ${ad.province}`
+              const createdAt = formatDate(ad.created_at)
+
+              console.log(`🖼️ Image URL for ${ad.title}:`, imageUrl) // برای debug
+
+              return (
+                <Link key={category.id} href={`/ads/${ad.id}`}>
+                  <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${category.color}`}>
+                          {category.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-medium text-sm">{category.name}</h4>
+                          <p className="text-xs text-muted-foreground">{category.count} آگهی</p>
+                        </div>
+                      </div>
+                      <div className="relative h-32 rounded-lg overflow-hidden bg-muted mb-3">
+                        <Image 
+                          src={imageUrl}
+                          alt={ad.title} 
+                          fill 
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            console.error(`❌ Failed to load image: ${imageUrl}`)
+                            e.currentTarget.src = "/placeholder.svg"
+                          }}
+                        />
+                        <Badge className="absolute top-2 right-2 bg-background/80 text-foreground text-[10px] backdrop-blur-sm">
+                          {categoryNames[ad.category] || ad.category}
+                        </Badge>
+                      </div>
+                      <h4 className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors mb-1">
+                        {ad.title}
+                      </h4>
+                      {ad.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-1 mb-2">
+                          {ad.description}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {location}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {createdAt}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </section>
     </>
   )

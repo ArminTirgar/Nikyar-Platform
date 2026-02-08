@@ -1,7 +1,6 @@
 "use client"
 
 import React from "react"
-
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -10,18 +9,33 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Package, Search, MapPin, Clock, ChevronLeft, Filter, Grid3X3, List, Loader2, X, Shirt, Sofa, Smartphone, BookOpen, Baby, Utensils, Bike, MoreHorizontal } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
 import useSWR from "swr"
 
 interface Ad {
   id: number
   title: string
-  description: string
+  description?: string
   category: string
-  location: string
-  image?: string
-  createdAt: string
-  status: "available" | "reserved" | "donated"
+  province: string
+  city: string
+  image_url?: string | null
+  created_at: string
+  item_condition: string
+  status?: "available" | "reserved" | "donated"
+}
+
+// تابع فرمت کردن تاریخ
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffTime = Math.abs(now.getTime() - date.getTime())
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) return "امروز"
+  if (diffDays === 1) return "دیروز"
+  if (diffDays < 7) return `${diffDays} روز پیش`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} هفته پیش`
+  return `${Math.floor(diffDays / 30)} ماه پیش`
 }
 
 const categoryNames: Record<string, string> = {
@@ -69,7 +83,7 @@ export function AdsContent() {
     ads?.filter((ad) => {
       const matchesSearch =
         ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ad.description.toLowerCase().includes(searchQuery.toLowerCase())
+        (ad.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false)
       const matchesCategory = !selectedCategory || ad.category === selectedCategory
       return matchesSearch && matchesCategory
     }) || []
@@ -82,6 +96,8 @@ export function AdsContent() {
         return <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">رزرو شده</Badge>
       case "donated":
         return <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20">اهدا شده</Badge>
+      default:
+        return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">موجود</Badge>
     }
   }
 
@@ -210,45 +226,57 @@ export function AdsContent() {
                 : "flex flex-col gap-4"
             }
           >
-            {filteredAds.map((ad) => (
-              <Link key={ad.id} href={`/ads/${ad.id}`}>
-                <Card
-                  className={`group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 ${
-                    viewMode === "list" ? "flex flex-row" : ""
-                  }`}
-                >
-                  <div
-                    className={`relative overflow-hidden bg-muted ${
-                      viewMode === "list" ? "w-48 h-36" : "aspect-[4/3]"
+            {filteredAds.map((ad) => {
+              const imageUrl = ad.image_url 
+                ? `http://localhost:3001${ad.image_url}` 
+                : "/placeholder.svg"
+              const location = `${ad.city}، ${ad.province}`
+              const createdAt = formatDate(ad.created_at)
+
+              return (
+                <Link key={ad.id} href={`/ads/${ad.id}`}>
+                  <Card
+                    className={`group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 ${
+                      viewMode === "list" ? "flex flex-row" : ""
                     }`}
                   >
-                    <Image
-                      src={ad.image || "/placeholder.svg?height=200&width=300&query=donation item"}
-                      alt={ad.title}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute top-3 right-3">{getStatusBadge(ad.status)}</div>
-                  </div>
-                  <CardContent className={`p-4 ${viewMode === "list" ? "flex-1" : ""}`}>
-                    <h3 className="font-semibold text-lg mb-2 line-clamp-1 group-hover:text-primary transition-colors">
-                      {ad.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{ad.description}</p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        <span>{ad.location}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        <span>{ad.createdAt}</span>
-                      </div>
+                    <div
+                      className={`relative overflow-hidden bg-muted ${
+                        viewMode === "list" ? "w-48 h-36" : "aspect-[4/3]"
+                      }`}
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={ad.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder.svg"
+                        }}
+                      />
+                      <div className="absolute top-3 right-3">{getStatusBadge(ad.status)}</div>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                    <CardContent className={`p-4 ${viewMode === "list" ? "flex-1" : ""}`}>
+                      <h3 className="font-semibold text-lg mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+                        {ad.title}
+                      </h3>
+                      {ad.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{ad.description}</p>
+                      )}
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          <span>{location}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>{createdAt}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )
+            })}
           </div>
         )}
       </section>

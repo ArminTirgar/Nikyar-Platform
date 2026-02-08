@@ -81,10 +81,12 @@ interface Ad {
 interface SimilarAd {
   id: number
   title: string
-  image: string
-  location: string
-  createdAt: string
+  image_url?: string | null  // تغییر از image به image_url
+  province: string            // اضافه شد
+  city: string               // اضافه شد
+  created_at: string         // تغییر از createdAt به created_at
   status: "available" | "reserved" | "donated"
+  category?: string          // اضافه شد (در صورت نیاز)
 }
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -117,6 +119,15 @@ const CONDITION_LABELS: Record<string, string> = {
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
+const API_BASE = "http://localhost:3001"
+
+const normalizeImageUrl = (url?: string) => {
+  if (!url) return ""
+  if (url.startsWith("http://") || url.startsWith("https://")) return url
+  if (url.startsWith("/")) return `${API_BASE}${url}`
+  return `${API_BASE}/${url}`
+}
 
 export default function AdDetailPage() {
   const params = useParams()
@@ -160,33 +171,72 @@ export default function AdDetailPage() {
     }
   }
 
-  const handleRequest = async () => {
-    if (!user) {
-      router.push("/login")
-      return
-    }
+  // تبدیل تاریخ به فرمت شمسی
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffTime = Math.abs(now.getTime() - date.getTime())
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) return "امروز"
+  if (diffDays === 1) return "دیروز"
+  if (diffDays < 7) return `${diffDays} روز پیش`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} هفته پیش`
+  return `${Math.floor(diffDays / 30)} ماه پیش`
+}
 
-    setIsRequesting(true)
-    try {
-      const response = await fetch(`http://localhost:3001/api/ads/${params.id}/request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.id,
-          message: requestMessage,
-        }),
-      })
 
-      if (response.ok) {
-        setRequestDialogOpen(false)
-        setRequestMessage("")
-      }
-    } catch (error) {
-      console.error("Error requesting ad:", error)
-    } finally {
-      setIsRequesting(false)
-    }
+const handleRequest = async () => {
+  if (!user) {
+    router.push("/login")
+    return
   }
+
+  // بررسی خالی نبودن پیام
+  if (!requestMessage.trim()) {
+    alert("لطفاً پیام خود را وارد کنید")
+    return
+  }
+
+  setIsRequesting(true)
+  try {
+    const response = await fetch(`http://localhost:3001/api/ads/${params.id}/request`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        // اگر نیاز به توکن دارید:
+        // "Authorization": `Bearer ${user.token}`
+      },
+      body: JSON.stringify({
+        userId: user.id,
+        message: requestMessage,
+      }),
+    })
+
+    // بررسی جزئیات response
+    const data = await response.json()
+    
+    if (response.ok) {
+      // نمایش پیام موفقیت
+      alert("درخواست شما با موفقیت ارسال شد")
+      
+      setRequestDialogOpen(false)
+      setRequestMessage("")
+      
+      // به‌روزرسانی داده‌ها
+      // mutate(`http://localhost:3001/api/ads/${params.id}`)
+    } else {
+      // نمایش خطای دریافتی از سرور
+      alert(data.message || "خطا در ارسال درخواست")
+      console.error("Error response:", data)
+    }
+  } catch (error) {
+    console.error("Error requesting ad:", error)
+    alert("خطا در ارسال درخواست. لطفاً دوباره تلاش کنید")
+  } finally {
+    setIsRequesting(false)
+  }
+}
 
   const handleShare = async () => {
     const url = window.location.href
@@ -325,14 +375,11 @@ export default function AdDetailPage() {
             {/* Image Gallery */}
             <Card className="overflow-hidden">
               <div className="relative aspect-[4/3] bg-muted">
-                <Image
-                  src={ad.images?.[currentImageIndex] || "/placeholder.svg?height=600&width=800&query=donation item"}
-                  alt={ad.title}
-                  fill
-                  className="object-cover"
-                  priority
-                />
-
+              <Image src={normalizeImageUrl(ad.images?.[currentImageIndex]) ||"/placeholder.svg?height=600&width=800&query=donation item"}
+              alt={ad.title}
+              fill
+              className="object-cover"
+              priority/>
                 {/* Status Badge */}
                 <div className="absolute top-4 right-4">{getStatusBadge(ad.status)}</div>
 
@@ -382,12 +429,7 @@ export default function AdDetailPage() {
                           index === currentImageIndex ? "border-primary ring-2 ring-primary/20" : "border-transparent"
                         }`}
                       >
-                        <Image
-                          src={image || "/placeholder.svg"}
-                          alt={`تصویر ${index + 1}`}
-                          fill
-                          className="object-cover"
-                        />
+                        <Image src={normalizeImageUrl(image) || "/placeholder.svg"} alt={`تصویر ${index + 1}`} fill className="object-cover" />
                       </button>
                     ))}
                   </div>
@@ -632,56 +674,66 @@ export default function AdDetailPage() {
         </div>
 
         {/* Similar Ads Section */}
-        {similarAds && similarAds.length > 0 && (
-          <section className="mt-12">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">آگهی‌های مشابه</h2>
-              <Button variant="ghost" asChild>
-                <Link href={`/search?category=${ad.category}`} className="gap-1">
-                  مشاهده همه
-                  <ChevronLeft className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
+{similarAds && similarAds.length > 0 && (
+  <section className="mt-12">
+    <div className="flex items-center justify-between mb-6">
+      <h2 className="text-2xl font-bold">آگهی‌های مشابه</h2>
+      <Button variant="ghost" asChild>
+        <Link href={`/search?category=${ad.category}`} className="gap-1">
+          مشاهده همه
+          <ChevronLeft className="h-4 w-4" />
+        </Link>
+      </Button>
+    </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {similarAds.map((similarAd) => (
-                <Link key={similarAd.id} href={`/ads/${similarAd.id}`}>
-                  <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                    <div className="relative aspect-[4/3] bg-muted">
-                      <Image
-                        src={similarAd.image || "/placeholder.svg?height=200&width=300&query=donation item"}
-                        alt={similarAd.title}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute top-3 right-3">
-                        {similarAd.status === "available" && (
-                          <Badge className="bg-green-500/10 text-green-600 border-green-500/20">موجود</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-lg mb-2 line-clamp-1 group-hover:text-primary transition-colors">
-                        {similarAd.title}
-                      </h3>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          <span>{similarAd.location}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{similarAd.createdAt}</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {similarAds.map((similarAd) => {
+        const imageUrl = similarAd.image_url 
+          ? `http://localhost:3001${similarAd.image_url}` 
+          : "/placeholder.svg"
+        const location = `${similarAd.city}، ${similarAd.province}`
+        const createdAt = formatDate(similarAd.created_at)
+
+        return (
+          <Link key={similarAd.id} href={`/ads/${similarAd.id}`}>
+            <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+              <div className="relative aspect-[4/3] bg-muted">
+                <img
+                  src={imageUrl}
+                  alt={similarAd.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder.svg"
+                  }}
+                />
+                <div className="absolute top-3 right-3">
+                  {similarAd.status === "available" && (
+                    <Badge className="bg-green-500/10 text-green-600 border-green-500/20">موجود</Badge>
+                  )}
+                </div>
+              </div>
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-lg mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+                  {similarAd.title}
+                </h3>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    <span>{location}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    <span>{createdAt}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        )
+      })}
+    </div>
+  </section>
+)}
       </main>
 
       {/* Footer */}
