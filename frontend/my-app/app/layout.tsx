@@ -14,7 +14,6 @@ const vazirmatn = localFont({
 export const metadata: Metadata = {
   title: "پلتفرم نیک‌یار - اهدای مستقیم کالا به نیازمندان",
   description: "پلتفرم اهدای مستقیم کالا به نیازمندان. با ثبت کالاهای خود، مستقیماً به کمک نیازمندان بیایید.",
-  generator: "v0.app",
   icons: {
     icon: [
       {
@@ -41,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
-  <body className={`${vazirmatn.className} font-sans antialiased`}>
+  <body className={`${vazirmatn.className} font-sans antialiased`} suppressHydrationWarning>
     <UserProvider>{children}</UserProvider>
     <Analytics />
   </body>
