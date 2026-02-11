@@ -3,6 +3,7 @@ import cors from "cors"
 import authRoutes from "./routes/auth.js"
 import adsRoutes from "./routes/ads.js"
 import requestsRoutes from "./routes/requests.js"
+import donationsRoutes from './routes/donations.js'
 import path from "path"
 
 const app = express()
@@ -23,7 +24,7 @@ app.use('/uploads', express.static('uploads'))
 // ✅ Routes
 app.use('/api/ads', adsRoutes)
 app.use('/api/requests', requestsRoutes)
-// ... سایر rout
+app.use('/api/donations', donationsRoutes)
 
 app.use(express.json())
 
