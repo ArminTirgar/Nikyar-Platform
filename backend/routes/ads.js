@@ -76,6 +76,17 @@ router.post("/", upload.array("images", 5), async (req, res) => {
         phone,
       ]
     )
+    const [admins] = await db.query(
+  "SELECT id FROM users WHERE role IN ('admin', 'moderator')"
+)
+
+for (const admin of admins) {
+  await db.query(
+    `INSERT INTO notifications (user_id, type, title, message, reference_id, reference_type)
+     VALUES (?, 'new_ad', 'آگهی جدید', ?, ?, 'ad')`,
+    [admin.id, `آگهی "${title}" در انتظار بررسی شماست`, result.insertId]
+  )
+}
 
     const itemId = result.insertId
 
@@ -305,6 +316,86 @@ router.get("/user/:userId", async (req, res) => {
   }
 })
 
+router.post("/", upload.array("images", 5), async (req, res) => {
+  try {
+    const { userId, categoryId, title, description, condition, province, city, address, phone } = req.body
+
+    // ثبت با وضعیت pending
+    const [result] = await db.query(
+      `INSERT INTO items 
+        (user_id, category_id, title, description, item_condition, province, city, address, phone, status, admin_status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', 'pending')`,
+      [userId, categoryId, title, description, condition, province, city, address || null, phone || null]
+    )
+
+    // ... ادامه کد آپلود تصاویر
+
+    // نوتیفیکیشن به ادمین‌ها
+    const [admins] = await db.query("SELECT id FROM users WHERE role IN ('admin', 'moderator')")
+    for (const admin of admins) {
+      await db.query(
+        `INSERT INTO notifications (user_id, type, title, message, reference_id, reference_type)
+         VALUES (?, 'new_ad', 'آگهی جدید', ?, ?, 'ad')`,
+        [admin.id, `آگهی "${title}" در انتظار بررسی`, result.insertId]
+      )
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "آگهی شما ثبت شد و پس از تایید ادمین منتشر خواهد شد",
+      itemId: result.insertId,
+    })
+  } catch (err) {
+    console.error("Error:", err)
+    res.status(500).json({ message: "خطای سرور" })
+  }
+})
+
+router.get("/", async (req, res) => {
+  try {
+    const { category, province, city, search } = req.query
+
+    let query = `
+      SELECT 
+        items.*,
+        categories.name AS category,
+        (SELECT image_url FROM item_images WHERE item_id = items.id LIMIT 1) AS image_url
+      FROM items
+      LEFT JOIN categories ON items.category_id = categories.id
+      WHERE items.admin_status = 'approved'  -- 👈 فقط تایید شده‌ها
+    `
+
+    const params = []
+
+    if (category) {
+      query += ` AND categories.name = ?`
+      params.push(category)
+    }
+
+    if (province) {
+      query += ` AND items.province = ?`
+      params.push(province)
+    }
+
+    if (city) {
+      query += ` AND items.city = ?`
+      params.push(city)
+    }
+
+    if (search) {
+      query += ` AND (items.title LIKE ? OR items.description LIKE ?)`
+      params.push(`%${search}%`, `%${search}%`)
+    }
+
+    query += ` ORDER BY items.created_at DESC LIMIT 50`
+
+    const [rows] = await db.query(query, params)
+    res.json(rows)
+  } catch (err) {
+    console.error("Error:", err)
+    res.status(500).json({ message: "خطای سرور" })
+  }
+})
 
 export default router
 

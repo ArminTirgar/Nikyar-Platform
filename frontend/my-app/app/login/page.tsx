@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,32 +21,49 @@ export default function LoginPage() {
   const router = useRouter()
   const { login } = useUser()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setError("")
+  setIsLoading(true)
 
-    try {
-      // API call to your backend
-      const response = await fetch("http://localhost:3001/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
+  try {
+    const response = await fetch("http://localhost:3001/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    })
 
-      if (!response.ok) {
-        throw new Error("ایمیل یا رمز عبور اشتباه است")
-      }
+    const contentType = response.headers.get("content-type") || ""
+    const text = await response.text()
 
-      const userData = await response.json()
-      login(userData)
-      router.push("/")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "خطا در ورود به حساب")
-    } finally {
-      setIsLoading(false)
+    // اگر پاسخ JSON نبود (HTML یا هرچیز دیگه)، پیام واضح بده
+    if (!contentType.includes("application/json")) {
+      throw new Error(
+        `سرور پاسخ JSON نداد (status ${response.status}). احتمالاً مسیر اشتباهه یا بک‌اند خطا داده.\n` +
+        text.slice(0, 120)
+      )
     }
+
+    const data = text ? JSON.parse(text) : null
+
+    if (!response.ok) {
+      throw new Error(data?.message || "ایمیل یا رمز عبور اشتباه است")
+    }
+
+    login(data)
+
+    // اگه ادمین بود به پنل ادمین ببرش
+    if (data.role === "admin" || data.role === "moderator") {
+      router.push("/admin")
+    } else {
+      router.push("/")
+    }
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "خطا در ورود به حساب")
+  } finally {
+    setIsLoading(false)
   }
+}
 
   return (
     <div
@@ -78,7 +94,9 @@ export default function LoginPage() {
           <CardContent className="pt-4">
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
-                <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm text-center">{error}</div>
+                <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm text-center">
+                  {error}
+                </div>
               )}
 
               <div className="space-y-2">
@@ -123,7 +141,11 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full h-12 text-base shadow-lg shadow-primary/20" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full h-12 text-base shadow-lg shadow-primary/20" 
+                disabled={isLoading}
+              >
                 {isLoading ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin ml-2" />

@@ -142,7 +142,6 @@ router.put("/:id/approve", async (req, res) => {
       return res.status(400).json({ message: "این درخواست قبلاً پردازش شده است" })
     }
 
-    // تایید درخواست
     await db.query(
       `UPDATE requests 
        SET status = 'approved', approved_at = CURRENT_TIMESTAMP 
@@ -150,13 +149,11 @@ router.put("/:id/approve", async (req, res) => {
       [id]
     )
 
-    // تغییر وضعیت کالا به رزرو شده
     await db.query(
       `UPDATE items SET status = 'reserved' WHERE id = ?`,
       [request.item_id]
     )
 
-    // رد کردن سایر درخواست‌ها
     const [rejectedResult] = await db.query(
       `UPDATE requests 
        SET status = 'rejected' 
@@ -341,7 +338,6 @@ router.put("/:id/delivered", async (req, res) => {
       return res.status(400).json({ message: "دریافت کالا قبلاً تایید شده است" })
     }
 
-    // تایید دریافت
     await db.query(
       `UPDATE requests 
        SET shipping_status = 'delivered', 
@@ -350,7 +346,6 @@ router.put("/:id/delivered", async (req, res) => {
       [id]
     )
 
-    // تغییر وضعیت کالا به اهدا شده
     await db.query(
       `UPDATE items SET status = 'donated' WHERE id = ?`,
       [request.item_id]

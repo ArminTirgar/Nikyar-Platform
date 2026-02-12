@@ -63,6 +63,17 @@ router.post("/", upload.single("receipt"), async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [userId || null, bankName, cardNumber, amount, donorName || null, message || null, receiptPath]
     )
+    const [admins] = await db.query(
+  "SELECT id FROM users WHERE role IN ('admin', 'moderator')"
+)
+
+for (const admin of admins) {
+  await db.query(
+    `INSERT INTO notifications (user_id, type, title, message, reference_id, reference_type)
+     VALUES (?, 'new_ad', 'آگهی جدید', ?, ?, 'ad')`,
+    [admin.id, `آگهی "${title}" در انتظار بررسی شماست`, result.insertId]
+  )
+}
 
     console.log("✅ Donation saved with ID:", result.insertId)
 
