@@ -154,17 +154,18 @@ export function SearchContent() {
     revalidateOnFocus: false,
     fallbackData: [],
   })
+  const adsArray = Array.isArray(ads) ? ads : []
 
   console.log("📦 Ads data:", ads) // برای debug
 
   // Group ads by category and get the latest one per category
   const latestByCategory = categories.reduce<Record<string, Ad>>((acc, cat) => {
-    const categoryAds = (ads || []).filter((ad) => ad.category === cat.id)
-    if (categoryAds.length > 0) {
-      acc[cat.id] = categoryAds[0]
-    }
-    return acc
-  }, {})
+  const categoryAds = adsArray.filter((ad) => ad.category === cat.id)
+  if (categoryAds.length > 0) {
+    acc[cat.id] = categoryAds[0]
+  }
+  return acc
+}, {})
 
   const filteredCategories = categories.filter((cat) => cat.name.includes(searchQuery))
 

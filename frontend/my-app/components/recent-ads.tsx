@@ -17,18 +17,20 @@ interface Ad {
   image_url?: string | null
 }
 
-
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export function RecentAds() {
   const {
-    data: recentAds,
+    data: adsData,
     error,
     isLoading,
   } = useSWR<Ad[]>("http://localhost:3001/api/ads", fetcher, {
     revalidateOnFocus: false,
     errorRetryCount: 2,
   })
+
+  // 🔧 اصلاح: مطمئن میشیم که ads یک آرایه هست و فقط 3 تای اول رو میگیریم
+  const recentAds = Array.isArray(adsData) ? adsData.slice(0, 3) : []
 
   return (
     <section className="py-16 md:py-20">
@@ -49,18 +51,29 @@ export function RecentAds() {
               </Card>
             ))}
           </div>
-        ) : error || !recentAds || recentAds.length === 0 ? (
-          <p className="text-center text-muted-foreground py-12">
-            هیچ آگهی‌ای هنوز منتشر نشده است.
-          </p>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">خطا در بارگذاری آگهی‌ها</p>
+          </div>
+        ) : recentAds.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              هیچ آگهی تایید شده‌ای هنوز منتشر نشده است.
+            </p>
+          </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto">
             {recentAds.map((ad) => (
               <Link href={`/ads/${ad.id}`} key={ad.id}>
                 <Card className="group overflow-hidden hover:shadow-xl transition-all duration-300">
                   <div className="relative h-48 overflow-hidden bg-muted">
-                    <Image src={ad.image_url ? `http://localhost:3001${ad.image_url}` : "/vercel.svg"} alt={ad.title} fill unoptimized className="object-cover transition-transform duration-300 group-hover:scale-105" />
-
+                    <Image 
+                      src={ad.image_url ? `http://localhost:3001${ad.image_url}` : "/placeholder.svg"} 
+                      alt={ad.title} 
+                      fill 
+                      unoptimized 
+                      className="object-cover transition-transform duration-300 group-hover:scale-105" 
+                    />
                   </div>
 
                   <CardContent className="p-4">

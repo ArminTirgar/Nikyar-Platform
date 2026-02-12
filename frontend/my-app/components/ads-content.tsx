@@ -24,7 +24,6 @@ interface Ad {
   status?: "available" | "reserved" | "donated"
 }
 
-// تابع فرمت کردن تاریخ
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
   const now = new Date()
@@ -71,22 +70,24 @@ export function AdsContent() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryParam)
 
   const {
-    data: ads,
+    data: adsData,
     error,
     isLoading,
   } = useSWR<Ad[]>("http://localhost:3001/api/ads", fetcher, {
     revalidateOnFocus: false,
-    fallbackData: [],
   })
+  
 
-  const filteredAds =
-    ads?.filter((ad) => {
-      const matchesSearch =
-        ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (ad.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false)
-      const matchesCategory = !selectedCategory || ad.category === selectedCategory
-      return matchesSearch && matchesCategory
-    }) || []
+  // 🔧 اصلاح: مطمئن میشیم که ads یک آرایه هست
+  const ads = Array.isArray(adsData) ? adsData : []
+
+  const filteredAds = ads.filter((ad) => {
+    const matchesSearch =
+      ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (ad.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false)
+    const matchesCategory = !selectedCategory || ad.category === selectedCategory
+    return matchesSearch && matchesCategory
+  })
 
   const getStatusBadge = (status: Ad["status"]) => {
     switch (status) {
@@ -205,79 +206,97 @@ export function AdsContent() {
             <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
             <p className="text-muted-foreground">در حال بارگذاری آگهی‌ها...</p>
           </div>
-        ) : error || filteredAds.length === 0 ? (
+        ) : error ? (
+          <div className="text-center py-20">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 mx-auto mb-6">
+              <Package className="h-10 w-10 text-destructive" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">خطا در بارگذاری آگهی‌ها</h3>
+            <p className="text-muted-foreground mb-6">لطفاً دوباره تلاش کنید</p>
+            <Button onClick={() => window.location.reload()}>تلاش مجدد</Button>
+          </div>
+        ) : filteredAds.length === 0 ? (
           <div className="text-center py-20">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted mx-auto mb-6">
               <Package className="h-10 w-10 text-muted-foreground" />
             </div>
             <h3 className="text-xl font-semibold mb-2">آگهی‌ای یافت نشد</h3>
             <p className="text-muted-foreground mb-6">
-              {searchQuery ? "نتیجه‌ای برای جستجوی شما پیدا نشد" : "هنوز آگهی‌ای ثبت نشده است"}
+              {searchQuery 
+                ? "نتیجه‌ای برای جستجوی شما پیدا نشد" 
+                : selectedCategory
+                  ? "هنوز آگهی‌ای در این دسته‌بندی ثبت نشده است"
+                  : "هنوز آگهی تایید شده‌ای وجود ندارد"}
             </p>
             <Button asChild>
               <Link href="/ads/new">اولین آگهی را ثبت کنید</Link>
             </Button>
           </div>
         ) : (
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-                : "flex flex-col gap-4"
-            }
-          >
-            {filteredAds.map((ad) => {
-              const imageUrl = ad.image_url 
-                ? `http://localhost:3001${ad.image_url}` 
-                : "/placeholder.svg"
-              const location = `${ad.city}، ${ad.province}`
-              const createdAt = formatDate(ad.created_at)
+          <>
+            <div className="mb-4 text-sm text-muted-foreground">
+              {filteredAds.length} آگهی یافت شد
+            </div>
+            <div
+              className={
+                viewMode === "grid"
+                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                  : "flex flex-col gap-4"
+              }
+            >
+              {filteredAds.map((ad) => {
+                const imageUrl = ad.image_url 
+                  ? `http://localhost:3001${ad.image_url}` 
+                  : "/placeholder.svg"
+                const location = `${ad.city}، ${ad.province}`
+                const createdAt = formatDate(ad.created_at)
 
-              return (
-                <Link key={ad.id} href={`/ads/${ad.id}`}>
-                  <Card
-                    className={`group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 ${
-                      viewMode === "list" ? "flex flex-row" : ""
-                    }`}
-                  >
-                    <div
-                      className={`relative overflow-hidden bg-muted ${
-                        viewMode === "list" ? "w-48 h-36" : "aspect-[4/3]"
+                return (
+                  <Link key={ad.id} href={`/ads/${ad.id}`}>
+                    <Card
+                      className={`group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 ${
+                        viewMode === "list" ? "flex flex-row" : ""
                       }`}
                     >
-                      <img
-                        src={imageUrl}
-                        alt={ad.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          e.currentTarget.src = "/placeholder.svg"
-                        }}
-                      />
-                      <div className="absolute top-3 right-3">{getStatusBadge(ad.status)}</div>
-                    </div>
-                    <CardContent className={`p-4 ${viewMode === "list" ? "flex-1" : ""}`}>
-                      <h3 className="font-semibold text-lg mb-2 line-clamp-1 group-hover:text-primary transition-colors">
-                        {ad.title}
-                      </h3>
-                      {ad.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{ad.description}</p>
-                      )}
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          <span>{location}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{createdAt}</span>
-                        </div>
+                      <div
+                        className={`relative overflow-hidden bg-muted ${
+                          viewMode === "list" ? "w-48 h-36" : "aspect-[4/3]"
+                        }`}
+                      >
+                        <img
+                          src={imageUrl}
+                          alt={ad.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.currentTarget.src = "/placeholder.svg"
+                          }}
+                        />
+                        <div className="absolute top-3 right-3">{getStatusBadge(ad.status)}</div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              )
-            })}
-          </div>
+                      <CardContent className={`p-4 ${viewMode === "list" ? "flex-1" : ""}`}>
+                        <h3 className="font-semibold text-lg mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+                          {ad.title}
+                        </h3>
+                        {ad.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{ad.description}</p>
+                        )}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            <span>{location}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{createdAt}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                )
+              })}
+            </div>
+          </>
         )}
       </section>
     </>

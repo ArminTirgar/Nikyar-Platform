@@ -375,11 +375,13 @@ const handleRequest = async () => {
             {/* Image Gallery */}
             <Card className="overflow-hidden">
               <div className="relative aspect-[4/3] bg-muted">
-              <Image src={normalizeImageUrl(ad.images?.[currentImageIndex]) ||"/placeholder.svg?height=600&width=800&query=donation item"}
-              alt={ad.title}
-              fill
-              className="object-cover"
-              priority/>
+              <Image
+  src={normalizeImageUrl(ad.images?.[currentImageIndex]) || "/placeholder.svg"}
+  alt={ad?.title ? `تصویر آگهی: ${ad.title}` : "تصویر آگهی"}
+  fill
+  className="object-cover"
+  unoptimized
+/>
                 {/* Status Badge */}
                 <div className="absolute top-4 right-4">{getStatusBadge(ad.status)}</div>
 

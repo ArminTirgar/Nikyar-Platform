@@ -358,12 +358,14 @@ export default function DashboardPage() {
 
   if (!user) return null
 
-  const stats = {
-    totalAds: userAds?.length || 0,
-    activeAds: userAds?.filter((ad) => ad.status === "available").length || 0,
-    donatedAds: userAds?.filter((ad) => ad.status === "donated").length || 0,
-    totalViews: userAds?.reduce((acc, ad) => acc + (ad.views || 0), 0) || 0,
-  }
+const ads = Array.isArray(userAds) ? userAds : [];
+
+const stats = {
+  totalAds: ads.length,
+  activeAds: ads.filter((ad) => ad.status === "available").length,
+  donatedAds: ads.filter((ad) => ad.status === "donated").length,
+  totalViews: ads.reduce((acc, ad) => acc + (ad.views || 0), 0),
+};
 
   return (
     <div className="min-h-screen bg-background" dir="rtl">
@@ -504,7 +506,7 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {userAds.map((ad) => {
+                    {(Array.isArray(userAds) ? userAds : []).map((ad) => {
                       const statusInfo = STATUS_MAP[ad.status]
                       const StatusIcon = statusInfo?.icon || Package
                       const imageUrl = ad.image_url 

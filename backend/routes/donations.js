@@ -55,25 +55,39 @@ router.post("/", upload.single("receipt"), async (req, res) => {
       return res.status(400).json({ message: "لطفاً تصویر فیش واریزی را آپلود کنید" })
     }
 
+    const normalizedAmount = String(amount).replace(/,/g, "")
     const receiptPath = "/uploads/receipts/" + req.file.filename
 
     const [result] = await db.query(
       `INSERT INTO donations 
         (user_id, bank_name, card_number, amount, donor_name, message, receipt_image) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [userId || null, bankName, cardNumber, amount, donorName || null, message || null, receiptPath]
+      [
+        userId || null,
+        bankName,
+        cardNumber,
+        normalizedAmount,
+        donorName || null,
+        message || null,
+        receiptPath,
+      ]
     )
-    const [admins] = await db.query(
-  "SELECT id FROM users WHERE role IN ('admin', 'moderator')"
-)
 
-for (const admin of admins) {
-  await db.query(
-    `INSERT INTO notifications (user_id, type, title, message, reference_id, reference_type)
-     VALUES (?, 'new_ad', 'آگهی جدید', ?, ?, 'ad')`,
-    [admin.id, `آگهی "${title}" در انتظار بررسی شماست`, result.insertId]
-  )
-}
+    const [admins] = await db.query(
+      "SELECT id FROM users WHERE role IN ('admin', 'moderator')"
+    )
+
+    for (const admin of admins) {
+      await db.query(
+        `INSERT INTO notifications (user_id, type, title, message, reference_id, reference_type)
+         VALUES (?, 'new_donation', 'کمک مالی جدید', ?, ?, 'donation')`,
+        [
+          admin.id,
+          `کمک مالی جدید از طرف ${donorName || "ناشناس"} به مبلغ ${amount} ثبت شد و منتظر تایید است.`,
+          result.insertId,
+        ]
+      )
+    }
 
     console.log("✅ Donation saved with ID:", result.insertId)
 
